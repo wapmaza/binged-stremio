@@ -1,456 +1,374 @@
-const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
-const { promisify } = require('util');
-const NodeCache = require('node-cache');
-const nameToImdb = require('name-to-imdb');
-const getImdbIdAsync = promisify(nameToImdb);
-const he = require('he');
-require('dotenv').config();
-function getPKTTime() { return new Date().toLocaleString("en-US", { timeZone: "Asia/Karachi", year: "2-digit", month: "2-digit", day: "2-digit", hour12: true, hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " PKT"; }
-// Global error handler for unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
+import pkg from "stremio-addon-sdk";
+import { ipAddress } from '@vercel/functions';
+import express from 'express';
 
-const cache = new NodeCache({ stdTTL: 604800, checkperiod: 1800, useClones: false });
-const filters = ["Must Watch", "Good", "Satisfactory", "Passable", "Poor", "Skip"];
-const recommendationMapping = { "A": "Must Watch", "B": "Good", "H": "Satisfactory", "C": "Passable", "D": "Poor", "F": "Skip" };
-const supportedLanguages = [
-    "Hindi", "English", "Telugu", "Tamil", "Malayalam", "Kannada", "Abkhazian", "Afar", "Afrikaans", "Akan", "Albanian", "Amharic", "Arabic", "Aragonese", "Armenian", "Assamese", "Avaric", "Avestan", "Aymara", "Azerbaijani", "Bambara", "Bashkir", "Basque", "Belarusian", "Bengali", "Bhojpuri", "Bislama", "Bosnian", "Breton", "Bulgarian", "Burmese", "Cantonese", "Catalan", "Chamorro", "Chechen", "Chichewa", "Chuvash", "Cornish", "Corsican", "Cree", "Croatian", "Czech", "Danish", "Divehi", "Dutch", "Dzongkha", "Esperanto", "Estonian", "Ewe", "Faroese", "Fijian", "Finnish", "French", "Frisian", "Fulah", "Gaelic", "Galician", "Ganda", "Georgian", "German", "Greek", "Guarani", "Gujarati", "Haitian", "Haryanvi", "Hausa", "Hebrew", "Herero", "Hiri Motu", "Hungarian", "Icelandic", "Ido", "Igbo", "Indonesian", "Interlingua", "Interlingue", "Inuktitut", "Inupiaq", "Irish", "Italian", "Japanese", "Javanese", "Kalaallisut", "Kanuri", "Kashmiri", "Kazakh", "Khmer", "Kikuyu", "Kinyarwanda", "Kirghiz", "Komi", "Kongo", "Korean", "Kuanyama", "Kurdish", "Lao", "Latin", "Latvian", "Letzeburgesch", "Limburgish", "Lingala", "Lithuanian", "Luba-Katanga", "Macedonian", "Malagasy", "Malay", "Maltese", "Mandarin", "Manipuri", "Manx", "Maori", "Marathi", "Marshall", "Moldavian", "Mongolian", "Nauru", "Navajo", "Ndebele", "Ndonga", "Nepali", "Northern Sami", "Norwegian", "Norwegian Bokmål", "Norwegian Nynorsk", "Occitan", "Ojibwa", "Oriya", "Oromo", "Ossetian", "Other", "Pali", "Persian", "Polish", "Portuguese", "Punjabi", "Pushto", "Quechua", "Raeto-Romance", "Romanian", "Rundi", "Russian", "Samoan", "Sango", "Sanskrit", "Sardinian", "Serbian", "Serbo-Croatian", "Shona", "Sindhi", "Sinhalese", "Slavic", "Slovak", "Slovenian", "Somali", "Sotho", "Spanish", "Sundanese", "Swahili", "Swati", "Swedish", "Tagalog", "Tahitian", "Tajik", "Tatar", "Thai", "Tibetan", "Tigrinya", "Tonga", "Tsonga", "Tswana", "Turkish", "Turkmen", "Twi", "Uighur", "Ukrainian", "Urdu", "Uzbek", "Venda", "Vietnamese", "Volapük", "Walloon", "Welsh", "Wolof", "Xhosa", "Yi", "Yiddish", "Yoruba", "Zhuang", "Zulu"
+const { addonBuilder, serveHTTP } = pkg;
+
+
+console.log("ip address");
+
+// Create Express app
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Static movie data - no external API calls
+const STATIC_MOVIES = [
+  {
+    id: "movie-001",
+    title: "The Last Guardian",
+    year: "2025",
+    genres: ["Action", "Adventure", "Fantasy"],
+    cast: ["John Smith", "Jane Doe", "Bob Wilson"],
+    directors: ["Alice Johnson"],
+    writers: ["Charlie Brown"],
+    description:
+      "A epic fantasy adventure about a young hero who must save the world from an ancient evil.",
+    runtime: 145,
+    certification: "PG-13",
+    tmdbRating: 8.2,
+    tmdbVotes: 1250,
+    poster:
+      "https://moviereelist.com/wp-content/uploads/2019/07/poster-placeholder.jpg",
+    background:
+      "https://moviereelist.com/wp-content/uploads/2019/07/poster-placeholder.jpg",
+    trailer: "https://www.youtube.com/watch?v=dummy_trailer_001",
+  },
+  {
+    id: "movie-003",
+    title: "Love in Paris",
+    year: "2025",
+    genres: ["Romance", "Drama"],
+    cast: ["Margot Robbie", "Ryan Gosling", "Anne Hathaway"],
+    directors: ["Greta Gerwig"],
+    writers: ["Nick Hornby"],
+    description:
+      "A heartwarming love story set against the backdrop of beautiful Paris.",
+    runtime: 110,
+    certification: "PG",
+    tmdbRating: 7.5,
+    tmdbVotes: 890,
+    poster:
+      "https://moviereelist.com/wp-content/uploads/2019/07/poster-placeholder.jpg",
+    background:
+      "https://moviereelist.com/wp-content/uploads/2019/07/poster-placeholder.jpg",
+    trailer: "https://www.youtube.com/watch?v=dummy_trailer_003",
+  },
+  {
+    id: "movie-005",
+    title: "The Detective",
+    year: "2025",
+    genres: ["Mystery", "Crime", "Drama"],
+    cast: ["Daniel Craig", "Ana de Armas", "Rami Malek"],
+    directors: ["Denis Villeneuve"],
+    writers: ["Agatha Christie"],
+    description:
+      "A brilliant detective solves a complex murder case with unexpected twists.",
+    runtime: 130,
+    certification: "PG-13",
+    tmdbRating: 7.9,
+    tmdbVotes: 1890,
+    poster:
+      "https://moviereelist.com/wp-content/uploads/2019/07/poster-placeholder.jpg",
+    background:
+      "https://moviereelist.com/wp-content/uploads/2019/07/poster-placeholder.jpg",
+    trailer: "https://www.youtube.com/watch?v=dummy_trailer_005",
+  },
+  {
+    id: "movie-007",
+    title: "Comedy Club",
+    year: "2025",
+    genres: ["Comedy", "Romance"],
+    cast: ["Adam Sandler", "Jennifer Aniston", "Kevin James"],
+    directors: ["Frank Coraci"],
+    writers: ["Adam Sandler"],
+    description:
+      "A hilarious comedy about friendship, love, and following your dreams.",
+    runtime: 105,
+    certification: "PG",
+    tmdbRating: 6.8,
+    tmdbVotes: 1100,
+    poster:
+      "https://moviereelist.com/wp-content/uploads/2019/07/poster-placeholder.jpg",
+    background:
+      "https://moviereelist.com/wp-content/uploads/2019/07/poster-placeholder.jpg",
+    trailer: "https://www.youtube.com/watch?v=dummy_trailer_007",
+  },
+  {
+    id: "movie-009",
+    title: "Superhero Origins",
+    year: "2025",
+    genres: ["Action", "Superhero", "Adventure"],
+    cast: ["Robert Downey Jr.", "Chris Evans", "Mark Ruffalo"],
+    directors: ["Joss Whedon"],
+    writers: ["Stan Lee"],
+    description:
+      "The origin story of how an ordinary person became an extraordinary hero.",
+    runtime: 140,
+    certification: "PG-13",
+    tmdbRating: 8.5,
+    tmdbVotes: 3200,
+    poster:
+      "https://moviereelist.com/wp-content/uploads/2019/07/poster-placeholder.jpg",
+    background:
+      "https://moviereelist.com/wp-content/uploads/2019/07/poster-placeholder.jpg",
+    trailer: "https://www.youtube.com/watch?v=dummy_trailer_009",
+  },
 ];
 
-// Get the special RPDB key from environment variable
-const specialRpdbKey = process.env.SPECIAL_RPDB_KEY;
+// Static stream data - dummy MP4 links
+const STATIC_STREAMS = [
+  {
+    id: "stream-001",
+    title: "The Last Guardian - 1080p",
+    url: "https://example.com/dummy_streams/the_last_guardian_1080p.mp4",
+    quality: "1080p",
+  },
+  {
+    id: "stream-003",
+    title: "The Last Guardian - 480p",
+    url: "https://example.com/dummy_streams/the_last_guardian_480p.mp4",
+    quality: "480p",
+  },
+  {
+    id: "stream-005",
+    title: "Cyber City - 720p",
+    url: "https://example.com/dummy_streams/cyber_city_720p.mp4",
+    quality: "720p",
+  },
+  {
+    id: "stream-007",
+    title: "Space Odyssey - 1080p",
+    url: "https://example.com/dummy_streams/space_odyssey_1080p.mp4",
+    quality: "1080p",
+  },
+  {
+    id: "stream-009",
+    title: "Ancient Warriors - 1080p",
+    url: "https://example.com/dummy_streams/ancient_warriors_1080p.mp4",
+    quality: "1080p",
+  },
+];
 
-const builder = new addonBuilder({
-    id: 'com.binged.latest',
-    version: '4.0.0',
-    name: 'Binged! OTT Releases Catalog',
-    description: 'Provides the latest OTT movies and TV shows catalog available to stream on streaming platforms from Binged.com',
-    "behaviorHints": {
-        "configurable": true,
-        "configurationRequired": false
+// Define Stremio Add-on
+const manifest = {
+  id: "com.stremio.testing",
+  version: "1.0.8",
+  name: "Test App",
+  description: "Static Movie Collection - No External APIs",
+  resources: ["stream", "catalog", "meta"],
+  types: ["movie"],
+  catalogs: [
+    {
+      type: "movie",
+      id: "static-movies-2025",
+      name: "Static Movies 2025",
+      extra: [{ name: "skip", isRequired: false }],
     },
-    config: [
-        {
-            key: 'rpdbApiKey',
-            title: 'RPDB API Key',
-            type: 'text',
-            required: false
-        }
-    ],
-    extra: [
-        {
-            name: 'skip',
-            isRequired: false,
-        }
-    ],
-    catalogs: [
-        { "type": "movie", "id": "binged-latest", "name": "Binged - Latest", "extra": [{ "name": "genre", "isRequired": false, "options": supportedLanguages }, { "name": "skip", "isRequired": false }, { "name": "recommendation", "isRequired": false, "options": filters }] },
-        { "type": "series", "id": "binged-latest", "name": "Binged - Latest", "extra": [{ "name": "genre", "isRequired": false, "options": supportedLanguages }, { "name": "skip", "isRequired": false }, { "name": "recommendation", "isRequired": false, "options": filters }] }
-    ],
-    resources: ['catalog'],
-    types: ['movie', 'series'],
-    idPrefixes: ['binged']
-});
+  ],
+};
 
-// Initial fetch function
-async function prefetchData() {
-    console.log(`${getPKTTime()} - Starting Initial Global Data Fetch...`);
-    try {
-        await Promise.all([
-            fetchAndCacheGlobalData("movie", true),
-            fetchAndCacheGlobalData("series", true)
-        ]);
-        console.log(`${getPKTTime()} - Initial Global Data Fetch Completed.`);
-    } catch (error) {
-        console.error(`${getPKTTime()} - Error During Initial Global Data Fetch:`, error.message);
-    }
-}
+const builder = new addonBuilder(manifest);
 
-// Function to refresh data (fetch only the latest 50 items)
-async function refreshCatalogData() {
-    try {
-        await Promise.all([
-            fetchAndCacheGlobalData("movie"),
-            fetchAndCacheGlobalData("series")
-        ]);
-    } catch (error) {
-        console.error(`${getPKTTime()} - Error Refreshing Global Catalog Data:`, error.message);
-    } finally {
-        setTimeout(refreshCatalogData, 60 * 60 * 1000); // 1 hour
-    }
-}
-
-// Initial fetch (fetch all 500 items)
-prefetchData().then(() => {
-    setTimeout(refreshCatalogData, 60 * 60 * 1000); // First refresh after 1 hour
-});
-
-// Function to fetch data with pagination support
-async function fetchBingedData(type, start = 0, length = 500, retries = 3, delay = 5000) {
-    const url = 'https://www.binged.com/wp-admin/admin-ajax.php';
-    const body = new URLSearchParams({
-        'filters[category][]': type === 'movie' ? 'Film' : type === 'series' ? 'Tv show' : [],
-        'filters[mode]': 'streaming-now',
-        'filters[page]': 0,
-        action: 'mi_events_load_data',
-        mode: 'streaming-now',
-        start: start,
-        length: length,
-        customcatalog: 0
-    });
-
-    for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'accept': '*/*',
-                    'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'x-requested-with': 'XMLHttpRequest',
-                    'referer': 'https://www.binged.com/streaming-premiere-dates/'
-                },
-                body: body,
-                // Optional: Set a custom timeout (e.g., 30 seconds)
-                signal: AbortSignal.timeout(30000)
-            });
-
-            if (!response.ok) throw new Error(`Failed to fetch data: ${response.statusText}`);
-            return await response.json();
-        } catch (error) {
-            if (attempt === retries) {
-                console.error(`${getPKTTime()} - Fetch failed after ${retries} attempts for ${type}: ${error.message}`);
-                throw error; // Propagate the error after all retries fail
-            }
-            console.warn(`${getPKTTime()} - Fetch attempt ${attempt} failed for ${type}: ${error.message}. Retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-}
-
-// Convert title to IMDb ID
-async function getImdbId(title, type) {
-    if (!title?.trim()) return null;
-    try {
-        let cleanedTitle = he.decode(title)
-            .replace(/(:?\s*Season\s*\d+)/i, '')
-            .replace(/\s?\(.*?\)$/, '')
-            .replace(/#/g, '')
-            .trim();
-
-        const imdbId = await getImdbIdAsync({ name: cleanedTitle }).catch(() => null);
-        if (imdbId) return imdbId;
-
-        const suggestionUrl = `https://sg.media-imdb.com/suggests/${cleanedTitle.charAt(0).toLowerCase()}/${encodeURIComponent(cleanedTitle)}.json`;
-        const response = await fetch(suggestionUrl).catch(() => null);
-        if (!response || !response.ok) return null;
-
-        const text = await response.text();
-        const jsonpMatch = text.match(/imdb\$.*?\((.*)\)/);
-        if (!jsonpMatch || !jsonpMatch[1]) return null;
-
-        const data = JSON.parse(jsonpMatch[1]);
-        if (!data.d || !Array.isArray(data.d)) return null;
-
-        // Match based on type
-        const result = data.d.find(item => {
-            if (type === 'movie') return item.qid === 'movie';
-            if (type === 'series') return item.q === 'TV series' || item.q === 'TV mini-series';
-            return false; // Fallback for unexpected type
-        });
-        return result && result.id ? result.id : null;
-    } catch (err) {
-        console.error(`${getPKTTime()} - Unexpected Error Fetching IMDb ID For "${title}" (type: ${type}): ${err.message}`);
-        return null;
-    }
-}
-
-// Fetch metadata from Cinemeta
-async function getMetadata(imdbId, type) {
-    if (!imdbId?.startsWith('tt')) return null;
-    try {
-        const response = await fetch(`https://v3-cinemeta.strem.io/meta/${type}/${imdbId}.json`);
-        return response.ok ? (await response.json()).meta : null;
-    } catch {
-        return null;
-    }
-}
-
-// Check if an image URL is valid
-async function isUrlAvailable(url) {
-    try {
-        const response = await fetch(url, { method: 'HEAD' });
-        return response.ok;
-    } catch (error) {
-        //console.error(`URL Check Failed for ${url}: ${error.message}`);
-        return false;
-    }
-}
-
-// Decode special characters in titles
-function decodeTitle(title) {
-    return he.decode(title);
-}
-
-// Function to fetch and cache global data
-async function fetchAndCacheGlobalData(type, isInitialFetch = false, initialFetchLimit = 500, refreshFetchLimit = 50) {
-    const cacheKey = `global-${type}`;
-    const specialRpdbCacheKey = specialRpdbKey ? `global-${type}-rpdb-${specialRpdbKey}` : null;
-
-    try {
-        const fetchLimit = isInitialFetch ? initialFetchLimit : refreshFetchLimit;
-        //console.log(`${getPKTTime()} - Fetching ${isInitialFetch ? 'All' : 'Latest'} Data For ${cacheKey}...`);
-        const rawData = await fetchBingedData(type, 0, fetchLimit);
-        const newMetas = await processRawData(rawData.data, type);
-
-        // Cache regular data
-        if (isInitialFetch) {
-            await cache.set(cacheKey, newMetas, 604800); // 7 days
-            console.log(`${getPKTTime()} - Cached ${newMetas.length} Items For ${cacheKey} With A TTL of 7 Days.`);
-        } else {
-            const existingData = (await cache.get(cacheKey)) || [];
-            const updatedData = mergeNewData(existingData, newMetas);
-            
-            // Calculate the actual number of new items
-            const newItemCount = updatedData.length - existingData.length + existingData.filter(item => 
-                !updatedData.some(updated => updated.name.toLowerCase() === item.name.toLowerCase())
-            ).length;
-
-            if (JSON.stringify(updatedData) !== JSON.stringify(existingData)) {
-                console.log(`${getPKTTime()} - Updating ${cacheKey} with ${newItemCount} new items at the top.`);
-                await cache.set(cacheKey, updatedData, 604800);
-            } else {
-                //console.log(`${getPKTTime()} - No New Items Found For ${cacheKey}`);
-            }
-        }
-
-        // Handle special RPDB key caching (similar adjustment needed here)
-        if (specialRpdbKey) {
-            const rpdbMetas = await Promise.all(newMetas.map(async (meta) => {
-                if (meta.id && /^tt\d+$/.test(meta.id)) {
-                    const rpdbPoster = `https://api.ratingposterdb.com/${specialRpdbKey}/imdb/poster-default/${meta.id}.jpg?fallback=true`;
-                    const isRpdbPosterValid = await isUrlAvailable(rpdbPoster);
-                    return {
-                        ...meta,
-                        poster: isRpdbPosterValid ? rpdbPoster : meta.poster
-                    };
-                }
-                return meta;
-            }));
-
-            if (isInitialFetch) {
-                await cache.set(specialRpdbCacheKey, rpdbMetas, 604800); // 7 days
-                console.log(`${getPKTTime()} - Cached ${rpdbMetas.length} Items For ${specialRpdbCacheKey} With A TTL of 7 Days.`);
-            } else {
-                const existingRpdbData = (await cache.get(specialRpdbCacheKey)) || [];
-                const updatedRpdbData = mergeNewData(existingRpdbData, rpdbMetas);
-                
-                // Calculate the actual number of new items for RPDB cache
-                const newRpdbItemCount = updatedRpdbData.length - existingRpdbData.length + existingRpdbData.filter(item => 
-                    !updatedRpdbData.some(updated => updated.name.toLowerCase() === item.name.toLowerCase())
-                ).length;
-
-                if (JSON.stringify(updatedRpdbData) !== JSON.stringify(existingRpdbData)) {
-                    console.log(`${getPKTTime()} - Updating ${specialRpdbCacheKey} with ${newRpdbItemCount} new items at the top.`);
-                    await cache.set(specialRpdbCacheKey, updatedRpdbData, 604800);
-                } else {
-                    //console.log(`${getPKTTime()} - No New Items Found For ${specialRpdbCacheKey}`);
-                }
-            }
-        }
-
-        return newMetas;
-    } catch (error) {
-        console.error(`${getPKTTime()} - Error in fetchAndCacheGlobalData for ${cacheKey}:`, error);
-        const staleData = await cache.get(cacheKey);
-        if (staleData) {
-            console.warn(`${getPKTTime()} - Returning stale data for ${cacheKey} due to error.`);
-            return staleData;
-        }
-        throw error;
-    }
-}
-
-// Helper function to merge new data with existing data
-function mergeNewData(existingData, newMetas) {
-    const nameToItemMap = new Map();
-    const isTTId = (id) => id?.startsWith("tt");
-
-    existingData.forEach((item) => {
-        const lowerCaseName = item.name.toLowerCase();
-        if (!nameToItemMap.has(lowerCaseName) || (isTTId(item.id) && !isTTId(nameToItemMap.get(lowerCaseName)?.id))) {
-            nameToItemMap.set(lowerCaseName, item);
-        }
-    });
-
-    const newItems = [];
-    newMetas.forEach((newItem) => {
-        const lowerCaseName = newItem.name.toLowerCase();
-        if (!nameToItemMap.has(lowerCaseName)) {
-            newItems.push(newItem);
-            nameToItemMap.set(lowerCaseName, newItem);
-        } else if (isTTId(newItem.id)) {
-            const existingItem = nameToItemMap.get(lowerCaseName);
-            if (!isTTId(existingItem.id)) {
-                //console.log(`${getPKTTime()} - Prioritizing item with tt ID: ${newItem.id} over ${existingItem.id}`);
-                nameToItemMap.set(lowerCaseName, newItem);
-            }
-        }
-    });
-
-    return [
-        ...newItems,
-        ...existingData.filter(item => !newItems.some(newItem => newItem.name.toLowerCase() === item.name.toLowerCase()))
-    ];
-}
-
-// Helper function to process raw data into metas
-async function processRawData(rawData, type) {
-    const imdbPromises = rawData.map(item => getImdbId(item.title).catch(() => null));
-    const imdbResults = await Promise.allSettled(imdbPromises);
-
-    const metadataPromises = imdbResults.map((result, index) =>
-        result.status === 'fulfilled' && result.value ? getMetadata(result.value, type).catch(() => null) : null
-    );
-    const metadataResults = await Promise.allSettled(metadataPromises);
-
-    return Promise.all(
-        rawData.map(async (item, index) => {
-            const imdbId = imdbResults[index]?.status === 'fulfilled' ? imdbResults[index].value : null;
-            const meta = metadataResults[index]?.status === 'fulfilled' ? metadataResults[index].value : null;
-            const id = imdbId || `binged:${item.id}`;
-
-            let poster = imdbId ? `https://live.metahub.space/poster/small/${imdbId}/img` : item['big-image'];
-            let background = imdbId ? `https://live.metahub.space/background/medium/${imdbId}/img` : item['big-image'];
-
-            const [posterAvailable] = await Promise.all([isUrlAvailable(poster)]);
-            if (!posterAvailable) poster = item['big-image']
-
-            return {
-                id,
-                type,
-                name: decodeTitle(item.title),
-                poster,
-                posterShape: 'poster',
-                background,
-                description: meta?.description || `${decodeTitle(item.title)} (${item['release-year']}) - ${item.genre}`,
-                recommendation: item.recommendation || "",
-                releaseInfo: item['release-year'] ? `${item['release-year']}` : (item['streaming-date'] || "Unknown"),
-                genres: meta?.genres || item.genre.split(', '),
-                languages: item.languages ? item.languages.split(', ') : [],
-                cast: meta?.cast || [],
-                director: meta?.director || [],
-                writer: meta?.writer || [],
-                imdbRating: meta?.imdbRating || null,
-                runtime: meta?.runtime || null,
-                trailers: meta?.trailers || [],
-                links: meta?.links || []
-            };
-        })
-    );
-}
-
-// Function to check if RPDB key is valid
-async function validateRPDBKey(rpdbKey) {
-    try {
-        const response = await fetch(`https://api.ratingposterdb.com/${rpdbKey}/isValid`);
-        const data = await response.json();
-        return data?.valid === true;
-    } catch (e) {
-        return false;
-    }
-}
-
-// Define catalog handler
+// Catalog resource - returns static movies
 builder.defineCatalogHandler(async (args) => {
-    const type = args.type;
+  if (args.type !== "movie") return { metas: [] };
 
-    if (type !== 'movie' && type !== 'series') {
-        return { metas: [] };
-    }
+  // Log IP address when catalog is accessed
+  console.log('IP Address (Catalog Handler):', args.ip || 'Unknown');
+  console.log('Catalog request details:', {
+    type: args.type,
+    id: args.id,
+    skip: args.extra?.skip,
+    userAgent: args.headers?.['user-agent'] || 'Unknown'
+  });
 
-    const config = args.config || {};
-    const selectedLanguage = args.extra?.genre;
-    const selectedRecommendation = args.extra?.recommendation;
-    const skip = parseInt(args.extra?.skip) || 0; // Handle pagination skip
-    const limit = 40; // Set your desired limit for items per page
+  // Use skip parameter for pagination (10 movies per page)
+  const skip = parseInt(args.extra?.skip || "0", 10) || 0;
+  const pageSize = 10;
 
-    // Step 1: Determine which cache to use with logging
-    const globalCacheKey = `global-${type}`;
-    const specialRpdbCacheKey = specialRpdbKey ? `global-${type}-rpdb-${specialRpdbKey}` : null;
-    let globalData;
-    if (config.rpdbApiKey === specialRpdbKey) {
-        globalData = cache.get(specialRpdbCacheKey);
-        if (!globalData) {
-            try {
-                globalData = await fetchAndCacheGlobalData(type);
-                cache.set(specialRpdbCacheKey, globalData);
-            } catch (error) {
-                console.error(`${getPKTTime()} - Failed To Fetch Preprocessed Data: ${error.message}`);
-                return { metas: [] };
-            }
-        }
-    } else {
-        globalData = cache.get(globalCacheKey);
-        if (!globalData) {
-            try {
-                globalData = await fetchAndCacheGlobalData(type);
-                cache.set(globalCacheKey, globalData);
-            } catch (error) {
-                console.error(`${getPKTTime()} - Failed To Fetch Global Data: ${error.message}`);
-                return { metas: [] };
-            }
-        }
-    }
+  // Filter movies based on catalog type
+  let filteredMovies = STATIC_MOVIES;
 
-    // Step 2: Validate RPDB API key (for non-special keys only)
-    let isRPDBKeyValid = false;
-    const rpdbValidationCacheKey = `rpdb-valid-${config.rpdbApiKey}`;
-    if (config.rpdbApiKey !== specialRpdbKey) {
-        isRPDBKeyValid = cache.get(rpdbValidationCacheKey) ?? await validateRPDBKey(config.rpdbApiKey).catch(err => {
-            //console.error(`${getPKTTime()} - Failed To Validate RPDB Key: ${err.message}`);
-            return false;
-        });
-        cache.set(rpdbValidationCacheKey, isRPDBKeyValid);
-        //!isRPDBKeyValid && console.log(`${getPKTTime()} - RPDB API Key Is Invalid`);
-    }
+  if (args.id === "static-movies-2025") {
+    filteredMovies = STATIC_MOVIES.filter((movie) => movie.year === "2025");
+  }
 
-    // Step 3: Apply RPDB poster updates (only for non-special keys)
-    let metasToReturn = globalData;
-    if (config.rpdbApiKey !== specialRpdbKey && isRPDBKeyValid) {
-        metasToReturn = globalData.map(meta => {
-            if (meta.id && /^tt\d+$/.test(meta.id)) {
-                return {
-                    ...meta,
-                    poster: `https://api.ratingposterdb.com/${config.rpdbApiKey}/imdb/poster-default/${meta.id}.jpg?fallback=true`
-                };
-            }
-            return meta;
-        });
-    }
+  // Apply pagination
+  const startIndex = skip;
+  const endIndex = skip + pageSize;
+  const pageMovies = filteredMovies.slice(startIndex, endIndex);
 
-    // Step 4: Filter by language (if selected)
-    if (selectedLanguage) {
-        console.log(`${getPKTTime()} - Filtering Data For Language: ${selectedLanguage}`);
-        metasToReturn = metasToReturn.filter(item =>
-            Array.isArray(item.languages) && item.languages.includes(selectedLanguage)
-        );
-    }
+  // Map to Stremio meta format
+  const metas = pageMovies.map((movie) => ({
+    id: movie.id,
+    name: movie.title,
+    poster: movie.poster,
+    background: movie.background,
+    releaseInfo: movie.year,
+    type: "movie",
+    genres: movie.genres,
+    cast: movie.cast,
+    directors: movie.directors,
+    writers: movie.writers,
+    description: movie.description,
+    runtime: movie.runtime,
+    certification: movie.certification,
+    imdbRating: movie.tmdbRating,
+    votes: movie.tmdbVotes,
+  }));
 
-    // Step 5: Filter by recommendation (if selected)
-    if (selectedRecommendation && filters.includes(selectedRecommendation)) {
-        console.log(`${getPKTTime()} - Filtering Data For Recommendation: ${selectedRecommendation}`);
-        metasToReturn = metasToReturn.filter(item => {
-            const mappedRecommendation = recommendationMapping[item.recommendation];
-            return mappedRecommendation === selectedRecommendation;
-        });
-    }
-
-    // Step 6: Apply pagination to limit the number of items
-    metasToReturn = metasToReturn.slice(skip, skip + limit);
-
-    //console.log(`${getPKTTime()} - Returning ${metasToReturn.length} items for ${type} (skip: ${skip}, limit: ${limit})`);
-    return { metas: metasToReturn };
+  return { metas };
 });
 
-serveHTTP(builder.getInterface(), { port: 7000, cacheMaxAge: 3600, staleRevalidate: 3600, staleError: 3600 });
+// Meta resource - returns detailed movie information
+builder.defineMetaHandler(async ({ id }) => {
+  const movie = STATIC_MOVIES.find((m) => m.id === id);
+
+  if (!movie) {
+    return { meta: null };
+  }
+
+  const meta = {
+    id: movie.id,
+    type: "movie",
+    name: movie.title,
+    poster: movie.poster,
+    background: movie.background,
+    releaseInfo: movie.year,
+    description: movie.description,
+    runtime: movie.runtime,
+    genres: movie.genres,
+    cast: movie.cast,
+    directors: movie.directors,
+    writers: movie.writers,
+    certification: movie.certification,
+    imdbRating: movie.tmdbRating,
+    votes: movie.tmdbVotes,
+    trailer: movie.trailer,
+  };
+
+  return { meta };
+});
+
+// Stream resource - returns dummy MP4 stream links
+builder.defineStreamHandler(async function (args) {
+  if (args.type === "movie") {
+    // Log IP address when stream is accessed
+    console.log('IP Address (Stream Handler):', args.ip || 'Unknown');
+    console.log('Stream request details:', {
+      type: args.type,
+      id: args.id,
+      userAgent: args.headers?.['user-agent'] || 'Unknown'
+    });
+
+    // Find streams for the movie
+    const movieStreams = STATIC_STREAMS.filter(
+      (stream) =>
+        stream.title.toLowerCase().includes(args.id.toLowerCase()) ||
+        (args.id.includes("movie-001") &&
+          stream.title.includes("The Last Guardian")) ||
+        (args.id.includes("movie-002") &&
+          stream.title.includes("Cyber City")) ||
+        (args.id.includes("movie-003") &&
+          stream.title.includes("Love in Paris")) ||
+        (args.id.includes("movie-004") &&
+          stream.title.includes("Space Odyssey")) ||
+        (args.id.includes("movie-005") &&
+          stream.title.includes("The Detective")) ||
+        (args.id.includes("movie-006") &&
+          stream.title.includes("Ancient Warriors")) ||
+        (args.id.includes("movie-007") &&
+          stream.title.includes("Comedy Club")) ||
+        (args.id.includes("movie-008") &&
+          stream.title.includes("Horror House")) ||
+        (args.id.includes("movie-009") &&
+          stream.title.includes("Superhero Origins")) ||
+        (args.id.includes("movie-010") &&
+          stream.title.includes("Animated Adventure"))
+    );
+
+    // If no specific streams found, return all streams
+    const streamsToReturn =
+      movieStreams.length > 0 ? movieStreams : STATIC_STREAMS;
+
+    const streams = streamsToReturn.map((stream) => ({
+      url: stream.url,
+      title: stream.title,
+      name: stream.quality,
+    }));
+
+    return Promise.resolve({ streams });
+  } else {
+    return Promise.resolve({ streams: [] });
+  }
+});
+
+// Add middleware to log IP addresses for all requests
+app.use((req, res, next) => {
+  // Method 5: Comprehensive IP detection
+  const getRealIP = (request) => {
+    // Check various headers that might contain the real IP
+    const forwarded = request.headers['x-forwarded-for'];
+    const realIP = request.headers['x-real-ip'];
+    const cfConnectingIP = request.headers['cf-connecting-ip'];
+    const trueClientIP = request.headers['true-client-ip'];
+    
+    // Return the first available IP from the chain
+    if (forwarded) {
+      return forwarded.split(',')[0].trim();
+    } else if (realIP) {
+      return realIP;
+    } else if (cfConnectingIP) {
+      return cfConnectingIP;
+    } else if (trueClientIP) {
+      return trueClientIP;
+    } else {
+      return request.ip || request.connection.remoteAddress;
+    }
+  };
+
+  const realIP = getRealIP(req);
+  console.log('IP Address (Method 5 - Comprehensive):', realIP);
+  console.log('Full headers:', JSON.stringify(req.headers, null, 2));
+  
+  next();
+});
+
+// Express routes
+app.get('/', (req, res) => {
+  // Method 1: Using @vercel/functions package
+  const ip1 = ipAddress(req);
+  console.log('IP Address (Method 1 - @vercel/functions):', ip1);
+  
+  res.json({
+    message: 'Hello World!',
+    status: 'success',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/hello', (req, res) => {
+  // Method 2: Using req.ip (Express default)
+  const ip2 = req.ip;
+  console.log('IP Address (Method 2 - req.ip):', ip2);
+  
+  // Method 3: Using req.connection.remoteAddress
+  const ip3 = req.connection.remoteAddress;
+  console.log('IP Address (Method 3 - req.connection.remoteAddress):', ip3);
+  
+  // Method 4: Using req.headers['x-forwarded-for']
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip4 = forwarded ? forwarded.split(',')[0].trim() : null;
+  console.log('IP Address (Method 4 - x-forwarded-for):', ip4);
+  
+  res.send('Hello World from /hello route!');
+});
+
+// Serve the add-on on a different port to avoid conflicts
+serveHTTP(builder.getInterface(), { port: 8181 });
+
+// Start Express server
+app.listen(PORT, () => {
+  console.log(`Express server running on http://localhost:${PORT}`);
+  console.log(`Stremio addon accessible at: http://localhost:8181/manifest.json`);
+});
