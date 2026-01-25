@@ -5,17 +5,18 @@ let moviesCache = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Function to fetch movies from API
-async function getMovies() {
+// Function to fetch movies from API with pagination support
+async function getMovies(page = 1) {
     const now = Date.now();
     
-    // Return cached data if still valid
-    if (moviesCache && (now - cacheTimestamp) < CACHE_DURATION) {
+    // For pagination, don't use cache for different pages
+    // Only cache the first page to avoid stale data issues
+    if (page === 1 && moviesCache && (now - cacheTimestamp) < CACHE_DURATION) {
         return moviesCache;
     }
     
     try {
-        const response = await axios.get('http://localhost:8181/api/kdramas', {
+        const response = await axios.get(`https://tmdbimg.vercel.app/api/kdramas?page=${page}`, {
             headers: {
                 'app_key': 'kdramas'
             }
@@ -37,7 +38,7 @@ async function getMovies() {
                 movies[key] = {
                     type: item.type || "series",
                     name: item.name || item.title || item.original_title || `Item ${index + 1}`,
-                    url: item.stream_url || item.url || 'https://example.com/stream.m3u8',
+                    url: item.stream_url || item.url || '',
                     title: item.title || "HD Stream"
                 };
             });
@@ -93,25 +94,6 @@ async function getMovies() {
 }
 
 // Static fallback data
-const staticMovies = {
-	"tt0111161": {
-		type: "movie",
-		name: "The Shawshank Redemption",
-		url: "https://example.com/stream.m3u8",
-		title: "HD Stream"
-	},
-	"kd001": {
-		type: "series",
-		name: "Crash Landing on You",
-		url: "https://example.com/kdrama1.m3u8",
-		title: "HD Stream"
-	},
-	"kd002": {
-		type: "series",
-		name: "Itaewon Class",
-		url: "https://example.com/kdrama2.m3u8",
-		title: "HD Stream"
-	}
-};
+const staticMovies = {};
 
 module.exports = { getMovies, staticMovies };
