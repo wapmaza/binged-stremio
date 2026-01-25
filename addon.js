@@ -5,6 +5,17 @@ const { getMovies } = require("./data/movies");
 
 const builder = new addonBuilder(manifest);
 
+const nameToImdb = require('name-to-imdb');
+
+const titleToImdb = name => new Promise((resolve, reject) =>
+	nameToImdb(name, (err, res) => {
+		if (err) {
+			reject(new Error(err.message));
+		}
+		resolve(res);
+	})
+);
+
 builder.defineStreamHandler(async function (args) {
 	const movies = await getMovies();
 	if (movies[args.id]) {
@@ -20,13 +31,15 @@ builder.defineMetaHandler(async function (args) {
 		const value = movies[args.id];
 		const tmdbId = args.id; // Use the actual ID from catalog, not split by ":"
 		
-		// Fetch IMDB ID from TMDB API only when viewing movie details
+		// Fetch IMDB ID using titleToImdb function
 		let imdbId = null;
 		try {
-			const response = await axios.get(`https://api.themoviedb.org/3/tv/${tmdbId}/external_ids?api_key=b371be5ee4ee121e9ed7aad89c098bda`);
-			imdbId = response.data.imdb_id;
+			// Skip titleToImdb for non-English titles or titles that might cause issues
+			if (value.name && /^[a-zA-Z0-9\s\-_.,:;!?()'"&]+$/.test(value.name)) {
+				imdbId = await titleToImdb(value.name);
+			}
 		} catch (error) {
-			console.error(`Error fetching IMDB ID for TMDB ID ${tmdbId}:`, error);
+			console.error(`Error fetching IMDB ID for title ${value.name}:`, error.message);
 		}
 		
 		// Use TMDB ID as fallback if IMDB ID is not available
@@ -49,22 +62,19 @@ builder.defineMetaHandler(async function (args) {
 
 const METAHUB_URL = "https://images.metahub.space";
 
-// Function to fetch IMDB ID from TMDB API
-async function fetchImdbIdFromTmdb(tmdbId) {
-    try {
-        const response = await axios.get(`https://api.themoviedb.org/3/tv/${tmdbId}/external_ids?api_key=b371be5ee4ee121e9ed7aad89c098bda`);
-        return response.data.imdb_id;
-    } catch (error) {
-        console.error(`Error fetching IMDB ID for TMDB ID ${tmdbId}:`, error);
-        return null;
-    }
-}
-
 const generateMetaPreview = async function (value, key) {
 	const tmdbId = key.split(":")[0];
 
-    // Fetch IMDB ID from TMDB API
-    const imdbId = await fetchImdbIdFromTmdb(tmdbId);
+    // Fetch IMDB ID using titleToImdb function
+    let imdbId = null;
+    try {
+        // Skip titleToImdb for non-English titles or titles that might cause issues
+        if (value.name && /^[a-zA-Z0-9\s\-_.,:;!?()'"&]+$/.test(value.name)) {
+            imdbId = await titleToImdb(value.name);
+        }
+    } catch (error) {
+        console.error(`Error fetching IMDB ID for title ${value.name}:`, error.message);
+    }
     
     // Use TMDB ID as fallback if IMDB ID is not available
     const idToUse = imdbId || tmdbId;
