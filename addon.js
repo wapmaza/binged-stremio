@@ -5,106 +5,113 @@ const { getMovies } = require("./data/movies");
 
 const builder = new addonBuilder(manifest);
 
-const nameToImdb = require('name-to-imdb');
+const nameToImdb = require("name-to-imdb");
 
-const titleToImdb = name => new Promise((resolve, reject) =>
-	nameToImdb(name, (err, res) => {
-		if (err) {
-			reject(new Error(err.message));
-		}
-		resolve(res);
-	})
-);
+const titleToImdb = (name) =>
+  new Promise((resolve, reject) =>
+    nameToImdb(name, (err, res) => {
+      if (err) {
+        reject(new Error(err.message));
+      }
+      resolve(res);
+    })
+  );
 
 builder.defineStreamHandler(async function (args) {
-	const movies = await getMovies();
-	if (movies[args.id]) {
-		return Promise.resolve({ streams: [movies[args.id]] });
-	} else {
-		return Promise.resolve({ streams: [] });
-	}
+  const movies = await getMovies();
+  if (movies[args.id]) {
+    return Promise.resolve({ streams: [movies[args.id]] });
+  } else {
+    return Promise.resolve({ streams: [] });
+  }
 });
 
 builder.defineMetaHandler(async function (args) {
-	const movies = await getMovies();
-	if (movies[args.id]) {
-		const value = movies[args.id];
-		const tmdbId = args.id; // Use the actual ID from catalog, not split by ":"
-		
-		// Fetch IMDB ID using titleToImdb function
-		let imdbId = null;
-		try {
-			// Skip titleToImdb for non-English titles or titles that might cause issues
-			if (value.name && /^[a-zA-Z0-9\s\-_.,:;!?()'"&]+$/.test(value.name)) {
-				imdbId = await titleToImdb(value.name);
-			}
-		} catch (error) {
-			console.error(`Error fetching IMDB ID for title ${value.name}:`, error.message);
-		}
-		
-		// Use TMDB ID as fallback if IMDB ID is not available
-		const idToUse = imdbId || tmdbId;
-		
-		return Promise.resolve({
-			meta: {
-				id: idToUse,
-				type: value.type,
-				name: value.name,
-				poster: METAHUB_URL + "/poster/medium/" + idToUse + "/img",
-				logo: METAHUB_URL + "/poster/medium/" + idToUse + "/img",
-				// add more meta fields as needed
-			}
-		});
-	} else {
-		return Promise.resolve({ meta: null });
-	}
+  const movies = await getMovies();
+  if (movies[args.id]) {
+    const value = movies[args.id];
+    const tmdbId = args.id; // Use the actual ID from catalog, not split by ":"
+
+    // Fetch IMDB ID using titleToImdb function
+    let imdbId = null;
+    try {
+      // Skip titleToImdb for non-English titles or titles that might cause issues
+      if (value.name && /^[a-zA-Z0-9\s\-_.,:;!?()'"&]+$/.test(value.name)) {
+        imdbId = await titleToImdb(value.name);
+      }
+    } catch (error) {
+      console.error(
+        `Error fetching IMDB ID for title ${value.name}:`,
+        error.message
+      );
+    }
+
+    // Use TMDB ID as fallback if IMDB ID is not available
+    const idToUse = imdbId || tmdbId;
+
+    return Promise.resolve({
+      meta: {
+        id: idToUse,
+        type: value.type,
+        name: value.name,
+        poster: METAHUB_URL + "/poster/medium/" + idToUse + "/img",
+        logo: METAHUB_URL + "/poster/medium/" + idToUse + "/img",
+        // add more meta fields as needed
+      },
+    });
+  } else {
+    return Promise.resolve({ meta: null });
+  }
 });
 
 const METAHUB_URL = "https://images.metahub.space";
 
 const generateMetaPreview = async function (value, key) {
-	const tmdbId = key.split(":")[0];
+  const tmdbId = key.split(":")[0];
 
-    // Fetch IMDB ID using titleToImdb function
-    let imdbId = null;
-    try {
-        // Skip titleToImdb for non-English titles or titles that might cause issues
-        if (value.name && /^[a-zA-Z0-9\s\-_.,:;!?()'"&]+$/.test(value.name)) {
-            imdbId = await titleToImdb(value.name);
-        }
-    } catch (error) {
-        console.error(`Error fetching IMDB ID for title ${value.name}:`, error.message);
+  // Fetch IMDB ID using titleToImdb function
+  let imdbId = null;
+  try {
+    // Skip titleToImdb for non-English titles or titles that might cause issues
+    if (value.name && /^[a-zA-Z0-9\s\-_.,:;!?()'"&]+$/.test(value.name)) {
+      imdbId = await titleToImdb(value.name);
     }
-    
-    // Use TMDB ID as fallback if IMDB ID is not available
-    const idToUse = imdbId || tmdbId;
-	
-	return {
-		id: idToUse,
-		type: value.type,
-		name: value.name,
-		poster: METAHUB_URL + "/poster/medium/" + idToUse + "/img",
-		logo: METAHUB_URL + "/poster/medium/" + idToUse + "/img",
-	};
+  } catch (error) {
+    console.error(
+      `Error fetching IMDB ID for title ${value.name}:`,
+      error.message
+    );
+  }
+
+  // Use TMDB ID as fallback if IMDB ID is not available
+  const idToUse = imdbId || tmdbId;
+
+  return {
+    id: idToUse,
+    type: value.type,
+    name: value.name,
+    poster: METAHUB_URL + "/poster/medium/" + idToUse + "/img",
+    logo: METAHUB_URL + "/poster/medium/" + idToUse + "/img",
+  };
 };
 
 builder.defineCatalogHandler(async function (args, cb) {
-	// Get page number from args, default to 1
-	const page = args.extra && args.extra.page ? parseInt(args.extra.page) : 1;
-	const movies = await getMovies(page);
-	
-	// Use the preserved order from the API response
-	const metas = await Promise.all(
-		(movies._order || Object.keys(movies).filter(key => key !== '_order'))
-			.filter(key => movies[key] && movies[key].type === args.type)
-			.map(key => generateMetaPreview(movies[key], key))
-	);
+  // Get page number from args, default to 1
+  const page = args.extra && args.extra.page ? parseInt(args.extra.page) : 1;
+  const movies = await getMovies(page);
 
-	// Add pagination info to response
-	return Promise.resolve({ 
-		metas: metas,
-		next: page + 1  // Indicate next page available
-	});
+  // Use the preserved order from the API response
+  const metas = await Promise.all(
+    (movies._order || Object.keys(movies).filter((key) => key !== "_order"))
+      .filter((key) => movies[key] && movies[key].type === args.type)
+      .map((key) => generateMetaPreview(movies[key], key))
+  );
+
+  // Add pagination info to response
+  return Promise.resolve({
+    metas: metas,
+    next: page + 1, // Indicate next page available
+  });
 });
 
 module.exports = builder.getInterface();
