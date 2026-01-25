@@ -93,10 +93,11 @@ builder.defineCatalogHandler(async function (args, cb) {
 	const page = args.extra && args.extra.page ? parseInt(args.extra.page) : 1;
 	const movies = await getMovies(page);
 	
+	// Use the preserved order from the API response
 	const metas = await Promise.all(
-		Object.entries(movies)
-			.filter(([_, value]) => value.type === args.type)
-			.map(([key, value]) => generateMetaPreview(value, key))
+		(movies._order || Object.keys(movies).filter(key => key !== '_order'))
+			.filter(key => movies[key] && movies[key].type === args.type)
+			.map(key => generateMetaPreview(movies[key], key))
 	);
 
 	// Add pagination info to response
