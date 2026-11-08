@@ -4,7 +4,7 @@ const axios = require("axios");
 async function getMovies(page = 1) {
   try {
     const response = await axios.get(
-      `https://tmdbimg.vercel.app/api/kdramas?page=${page}`,
+      `https://tmdbimgs.vercel.app/api/kdramas?page=${page}`,
       {
         headers: {
           app_key: "kdramas",
